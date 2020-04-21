@@ -19,5 +19,4 @@ ts -N $MAXJOB sleep 0.01
 ts -df sleep 0.01
 echo "Terminate merge all subruns"
 rm -f /tmp/ihep_data/ts-out.*
-source run_5.sh
-
+#source $TER/run_5.sh

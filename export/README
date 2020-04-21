@@ -1,0 +1,3 @@
+metti il file CONF_###.pickle in conf_file
+lancia lo script picke_converter.py con python3 e modifica il file generato sovrascrivendo il file originario con quello "_2"
+lancia python baseline_...

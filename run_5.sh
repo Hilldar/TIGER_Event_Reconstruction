@@ -19,5 +19,5 @@ ts -N $MAXJOB sleep 0.01
 ts -df sleep 0.01
 echo "Terminate clean bad subruns"
 rm -f /tmp/ihep_data/ts-out.*
-source run_6.sh
+source $TER/run_6.sh
 

@@ -34,7 +34,9 @@ const int noise_time_cut_min_left_noTP  = -9375;//-1500*TIME_BIN;
 const int noise_time_cut_max_left_noTP  = -9062;//-1450*TIME_BIN;
 const int noise_time_cut_min_right_noTP = -8125;//-1300*TIME_BIN;//-1240;
 const int noise_time_cut_max_right_noTP = -8125;//-1300*TIME_BIN;
-const double time_window_noise=(noise_time_cut_max_left-noise_time_cut_min_left + noise_time_cut_max_right-noise_time_cut_min_right)*6.25e-9; //seconds                                                                   
+const double time_window_signal=(signal_time_cut_max-signal_time_cut_min)*1e-9; //second
+const double time_window_signal_noTP=(signal_time_cut_max_noTP-signal_time_cut_min_noTP)*1e-9; //second
+const double time_window_noise=(noise_time_cut_max_left-noise_time_cut_min_left + noise_time_cut_max_right-noise_time_cut_min_right)*1e-9; //seconds                  
 const double time_window_noise_noTP=(noise_time_cut_max_left_noTP-noise_time_cut_min_left_noTP + noise_time_cut_max_right_noTP-noise_time_cut_min_right_noTP)*1e-9; //seconds                                                                   
 int thr_ch = 62;
                                                           
@@ -65,8 +67,12 @@ TString ofile_name;
 TTree *otree;
 TFile *ofile;
 int t_feb, t_chip, t_ch, t_strip_x, t_strip_v;
-double t_noise_Hz, t_noise_Q, t_thr, t_thr_wid;
+int t_quality;
+double t_noise_Hz, t_noise_Q, t_thr, t_thr_wid, t_sig_meanQ, t_sig_maxQ, t_sig_Hz;
+double t_rate_sat_max;
 double t_time_start1,t_time_start2,t_time_start3,t_time_stop1,t_time_stop2,t_time_stop3,t_time_sigma1,t_time_sigma2,t_time_sigma3; 
+double t_time_start1FEB,t_time_start2FEB,t_time_start3FEB,t_time_stop1FEB,t_time_stop2FEB,t_time_stop3FEB,t_time_sigma1FEB,t_time_sigma2FEB,t_time_sigma3FEB;
+
 //VARIABLE FOR MAPPING
 TString map_file="mapping_IHEP_L2_2planari_penta.root";
 TFile *mapfile = new TFile(map_file);
@@ -124,13 +130,13 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
   //   
   //   
   //signal threshold
-  int min_charge_hist=0;
-  int max_charge_hist=30;
-  double charge_resolution = 0.25; //fC                                                                                                                                                                                 
+  int min_charge_hist=0;          //fC
+  int max_charge_hist=30;         //fC
+  double charge_resolution = 0.5; //fC
   int n_bin = (max_charge_hist-min_charge_hist)/charge_resolution;
   TString h_name="h_charge";
   TH1D *h_charge = new TH1D(h_name,h_name,n_bin,min_charge_hist,max_charge_hist);
-  TF1 *f_thr = new TF1("f_thr","[0]/(1+exp(-(x-[1])/[2]))");
+  TF1 *f_thr = new TF1("f_thr","[0]/(1+exp(-(x-[1])/[2]))",-5,5);
   if(print_here)cout<<Get_Command(0,h_name)<<endl;
   if(print_here)cout<<Get_Cut(4,FEB_i,chip_i,ch_i)<<endl;
   ch.Draw(Get_Command(0,h_name),Get_Cut(4,FEB_i,chip_i,ch_i),"goff");
@@ -138,7 +144,8 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
   double thr_wid = 0;
   if(h_charge->GetEntries()){
     f_thr->SetParameters(h_charge->GetMaximum(),0.5*h_charge->GetMaximumBin()*charge_resolution,0.2);
-    f_thr->SetParLimits(0,0,1.2*h_charge->GetMaximum());
+    //f_thr->SetParLimits(0,0,1.1*h_charge->GetMaximum());
+    f_thr->FixParameter(0,h_charge->GetMaximum());
     f_thr->SetParLimits(1,0,h_charge->GetMaximumBin()*charge_resolution+1);
     f_thr->SetParLimits(2,0,1);
     if(print_here){
@@ -149,10 +156,65 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
       for(int i=0;i<n_bin;i++)cout<<h_charge->GetBinContent(i+1)<<" ";
       cout<<endl;
     }
-    h_charge->Fit("f_thr","Q","",h_charge->GetMaximumBin()*charge_resolution-2,h_charge->GetMaximumBin()*charge_resolution+1);
+    h_charge->Fit("f_thr","WQ","",-5,h_charge->GetMaximumBin()*charge_resolution+1*charge_resolution);
     threshold=f_thr->GetParameter(1);
     thr_wid  =f_thr->GetParameter(2);
   }
+
+  //signal mean and max charge
+  min_charge_hist=-5;
+  max_charge_hist=60;
+  charge_resolution = 2; //0.25; fC
+  n_bin = (max_charge_hist-min_charge_hist)/charge_resolution;
+  TString h_name2="h_charge2";
+  TH1D *h_charge2 = new TH1D(h_name2,h_name2,n_bin,min_charge_hist,max_charge_hist);
+  if(print_here)cout<<Get_Command(0,h_name2)<<endl;
+  if(print_here)cout<<Get_Cut(4,FEB_i,chip_i,ch_i)<<endl;
+  ch.Draw(Get_Command(0,h_name2),Get_Cut(4,FEB_i,chip_i,ch_i),"");
+  double mean_charge = 0;
+  double max_charge  = 0;
+  double max_bin = 0;
+  double saturation_bin_content=0;
+  double maximum_bin_content=-1;
+  if(h_charge2->GetEntries()){
+    mean_charge=h_charge2->GetMean();
+    for(int i=n_bin;i>1;i--){
+      if(h_charge2->GetBinContent(i)>0) {
+	max_charge = h_charge2->GetBinCenter(i); 
+	saturation_bin_content=h_charge2->GetBinContent(i);
+	for(int j=i-1;j>1;j--){
+	  if(h_charge2->GetBinContent(j)>maximum_bin_content) maximum_bin_content=h_charge2->GetBinContent(j);
+	}
+	break;
+      }
+    }
+  }
+  //rate saturationBin/MaximumBin
+  //if(h_charge2->GetEntries()) maximum_bin_content=h_charge2->GetMaximum();
+  double rate_sat_max = saturation_bin_content/maximum_bin_content;
+
+
+
+  //signal rate
+  int n_bin_rate=100;
+  TH1D *h_rate;
+  TString name_rate  = "h_rate";
+  //signal time distribution 
+  if(no_TP){
+    n_bin_rate= signal_time_cut_max_noTP - signal_time_cut_min_noTP;
+    h_rate = new TH1D(name_rate,name_rate,n_bin_rate,signal_time_cut_min_noTP,signal_time_cut_max_noTP);
+  }
+  if(!no_TP) {
+    n_bin_rate= signal_time_cut_max - signal_time_cut_min;
+    h_rate = new TH1D(name_rate,name_rate,n_bin_rate,signal_time_cut_max,signal_time_cut_min);
+  }
+  if(print_here)cout<<Get_Command(2,name_rate)<<endl;
+  if(print_here)cout<<Get_Cut(6,FEB_i,chip_i,ch_i)<<endl;
+  ch.Draw(Get_Command(2,name_rate),Get_Cut(6,FEB_i,chip_i,ch_i),"goff");
+  double nhitsofsignal = h_rate->GetEntries();
+  double sig_rate = 0;
+  if(!no_TP) sig_rate = nhitsofsignal/time_window_signal/ch.GetEntries();
+  else       sig_rate = nhitsofsignal/time_window_signal_noTP/ch.GetEntries();
 
   //
   //
@@ -181,9 +243,10 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
   if(h_signal_time->GetEntries()){
     //fit time - function 1
     double par0=0;
-    int i_count=0;
+    double i_count=0;
     for(int i=1;i<7;i++) if(h_signal_time->GetBinContent(i)){par0+=h_signal_time->GetBinContent(i);i_count++;}
     par0/=i_count;  
+    if(0.2*h_signal_time->GetMaximum()<par0) par0=0;
     if(no_TP) {
       f1->SetParameters(par0,0.5*h_signal_time->GetMaximum(),signal_time_cut_min_noTP+12,5,signal_time_cut_max_noTP-15);
       f1->SetParLimits(0,0,h_signal_time->GetMaximum());
@@ -200,7 +263,7 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
       f1->SetParLimits(3,0,100);
       f1->SetParLimits(4,signal_time_cut_min,signal_time_cut_max);
     }
-    f1->SetParLimits(0,0,0.2*h_signal_time->GetMaximum());
+    f1->SetParLimits(0,-0.1,0.2*h_signal_time->GetMaximum());
     f1->SetParLimits(1,0.2*h_signal_time->GetMaximum(),h_signal_time->GetMaximum());
     h_signal_time->Fit(f1,"Q");
     if(((gMinuit->fCstatu)=="CONVERGED ") || ((gMinuit->fCstatu)=="SUCCESSFUL") || ((gMinuit->fCstatu)=="OK ")|| ((gMinuit->fCstatu)=="CALL LIMIT"))        {
@@ -248,6 +311,87 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
       t_sigma3 = f4->GetParameter(5);
     }
   }
+  //
+  //
+  //signal time distribution chip per chip
+  double t_start1FEB,t_start2FEB,t_start3FEB,t_stop1FEB,t_stop2FEB,t_stop3FEB,t_sigma1FEB,t_sigma2FEB,t_sigma3FEB;
+  t_start1FEB=t_start2FEB=t_start3FEB=t_stop1FEB=t_stop2FEB=t_stop3FEB=t_sigma1FEB=t_sigma2FEB=t_sigma3FEB=0;
+  if(print_here)cout<<Get_Command(2,h_name_time)<<endl;
+  if(print_here)cout<<Get_Cut(7,FEB_i,chip_i,ch_i)<<endl;
+  ch.Draw(Get_Command(2,h_name_time),Get_Cut(7,FEB_i,chip_i),"goff");
+  if(print_here)cout<<"ENTRIES: "<<h_signal_time->GetEntries()<<endl;
+  if(h_signal_time->GetEntries()){
+    //fit time - function 1 
+    double par0=0;
+    double i_count=0;
+    for(int i=1;i<7;i++) if(h_signal_time->GetBinContent(i)){par0+=h_signal_time->GetBinContent(i);i_count++;}
+    par0/=i_count;
+    if(0.2*h_signal_time->GetMaximum()<par0) par0=0;
+    if(no_TP) {
+      f1->SetParameters(par0,0.5*h_signal_time->GetMaximum(),signal_time_cut_min_noTP+12,5,signal_time_cut_max_noTP-15);
+      f1->SetParLimits(0,0,h_signal_time->GetMaximum());
+      f1->SetParLimits(1,0,2*h_signal_time->GetMaximum());
+      f1->SetParLimits(2,signal_time_cut_min_noTP,signal_time_cut_max_noTP);
+      f1->SetParLimits(3,0,100);
+      f1->SetParLimits(4,signal_time_cut_min_noTP,signal_time_cut_max_noTP);
+    }
+    if(!no_TP){
+      f1->SetParameters(par0,0.5*h_signal_time->GetMaximum(),signal_time_cut_min+12,5,signal_time_cut_max-15);
+      f1->SetParLimits(0,0,h_signal_time->GetMaximum());
+      f1->SetParLimits(1,0,2*h_signal_time->GetMaximum());
+      f1->SetParLimits(2,signal_time_cut_min,signal_time_cut_max);
+      f1->SetParLimits(3,0,100);
+      f1->SetParLimits(4,signal_time_cut_min,signal_time_cut_max);
+    }
+    f1->SetParLimits(0,-0.1,0.2*h_signal_time->GetMaximum());
+    f1->SetParLimits(1,0.2*h_signal_time->GetMaximum(),h_signal_time->GetMaximum());
+    h_signal_time->Fit(f1,"Q");
+    if(((gMinuit->fCstatu)=="CONVERGED ") || ((gMinuit->fCstatu)=="SUCCESSFUL") || ((gMinuit->fCstatu)=="OK ")|| ((gMinuit->fCstatu)=="CALL LIMIT"))        {
+      t_start1FEB = f1->GetParameter(2);
+      t_stop1FEB  = f1->GetParameter(4);
+      t_sigma1FEB = f1->GetParameter(3);
+    }
+    //fit time - function 2
+    f2->SetParameters(f1->GetParameter(0),f1->GetParameter(1),0.05,f1->GetParameter(2),f1->GetParameter(2),f1->GetParameter(3));
+    f2->SetParLimits(0,0,3*f1->GetParameter(0));
+    f2->SetParLimits(1,0,2*h_signal_time->GetMaximum());
+    f2->SetParLimits(2,0.,1);
+    f2->SetParLimits(3,f1->GetParameter(2),f1->GetParameter(2)+7*f1->GetParameter(3));
+    f2->SetParLimits(4,f1->GetParameter(2)-5*f1->GetParameter(3),f1->GetParameter(2)+5*f1->GetParameter(3));
+    f2->SetParLimits(5,0,5*f1->GetParameter(2));
+    h_signal_time->Fit(f2,"Q","",signal_time_cut_min_noTP,0.5*(f1->GetParameter(2)+f1->GetParameter(4)));
+    if(((gMinuit->fCstatu)=="CONVERGED ") || ((gMinuit->fCstatu)=="SUCCESSFUL") || ((gMinuit->fCstatu)=="OK ")|| ((gMinuit->fCstatu)=="CALL LIMIT"))        {
+      t_start2FEB = f2->GetParameter(4);
+      t_sigma2FEB = f2->GetParameter(5);
+    }
+    //fit time - function 3
+    f3->SetParameters(f1->GetParameter(0),f1->GetParameter(1),f1->GetParameter(4),f1->GetParameter(3));
+    f3->SetParLimits(0,0,3*f1->GetParameter(0));
+    f3->SetParLimits(1,0,2*h_signal_time->GetMaximum());
+    f3->SetParLimits(2,f1->GetParameter(4)-5*f1->GetParameter(3),f1->GetParameter(4)+5*f1->GetParameter(3));
+    f3->SetParLimits(3,0,5*f1->GetParameter(3));
+    h_signal_time->Fit(f3,"Q","",0.5*(f1->GetParameter(2)+f1->GetParameter(4)),signal_time_cut_max_noTP);
+    if(((gMinuit->fCstatu)=="CONVERGED ") || ((gMinuit->fCstatu)=="SUCCESSFUL") || ((gMinuit->fCstatu)=="OK ")|| ((gMinuit->fCstatu)=="CALL LIMIT"))        {
+      t_stop2FEB  = f3->GetParameter(2);
+    }
+    //fit time - function 4 
+    f4->SetParameters(f1->GetParameter(0),f1->GetParameter(1),f1->GetParameter(2),f1->GetParameter(3),f1->GetParameter(4),0.1*f1->GetParameter(0),f1->GetParameter(2)+3*f1->GetParameter(3),f1->GetParameter(3));
+    f4->SetParLimits(0,0.9*f1->GetParameter(0),1.1*f1->GetParameter(0));
+    f4->SetParLimits(1,0.9*f1->GetParameter(1),1.1*f1->GetParameter(1));
+    f4->SetParLimits(2,0.9*f1->GetParameter(2),1.1*f1->GetParameter(2));
+    f4->SetParLimits(3,0.9*f1->GetParameter(3),1.1*f1->GetParameter(3));
+    f4->SetParLimits(4,0.9*f1->GetParameter(4),1.1*f1->GetParameter(4));
+    f4->SetParLimits(5,0,2*f1->GetParameter(0));
+    f4->SetParLimits(6,f1->GetParameter(2)-3*f1->GetParameter(3),f1->GetParameter(2)+3*f1->GetParameter(3));
+    f4->SetParLimits(7,0,10*f1->GetParameter(3));
+    h_signal_time->Fit(f4,"Q");
+    if(((gMinuit->fCstatu)=="CONVERGED ") || ((gMinuit->fCstatu)=="SUCCESSFUL") || ((gMinuit->fCstatu)=="OK ")|| ((gMinuit->fCstatu)=="CALL LIMIT"))        {
+      t_start3FEB = f4->GetParameter(2);
+      t_stop3FEB  = f4->GetParameter(4);
+      t_sigma3FEB = f4->GetParameter(5);
+    }
+  }
+
   //   
   //   
   //mapping
@@ -259,7 +403,8 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
   int mx(-1),mv(-1);
   for (int i = 0; i < maptree->GetEntries(); i++) {
     maptree->GetEntry(i);
-    if(pos_x*pos_v<0 && mx==-1 && mv==-1 && FEB_label_id==FEB_i && chip_id==chip_i && channel_id==ch_i){
+    //if(pos_x*pos_v<=0 && mx==-1 && mv==-1 && FEB_label_id==FEB_i && chip_id==chip_i && channel_id==ch_i){
+    if(FEB_label_id==FEB_i && chip_id==chip_i && channel_id==ch_i){
       mx = pos_x;
       mv = pos_v;
       break;
@@ -267,12 +412,21 @@ void ext(vector<int> runs, int FEB_i, int chip_i, int ch_i){
   }
   //
   //
+  //Channel quality
+  int                             quality=0; //good
+  if(mx*mv>0)                     quality=1; //disconnected channel
+  else if(sig_rate<10)            quality=2; //signal+noise rate < 10 Hz
+  else if(max_charge<20 && mx>=0) quality=3; //maximum charge recorded < 20 fC
+  else if(mean_charge<3 && mx>=0) quality=4; //low charge strips
+  //                              quality=5    damaged anode tail
+  else if(noise_charge>20)        quality=6; //high charge noise
+
   //Write the output of the single strip on the file
   if(print_here)cout<<"FEB: "<<FEB_i<<" Chip: "<<chip_i<<" Channel: "<<ch_i<<" Rate: "<<rate<<" Thr: "<<threshold<<" StripX: "<<mx<<" StripV: "<<mv<<endl;
   outFile = DataDir+to_string(runs.at(0))+"/extraction.txt";
   outStream.open(outFile,std::ios::out |std::ios::app);
-  outStream<<FEB_i<<" "<<chip_i<<" "<<ch_i<<" "<<rate<<" "<<noise_charge<<" "<<threshold<<" "<<thr_wid<<" "<<t_start1<<" "<<t_start2<<" "<<t_start3<<" "<<t_stop1<<" "<<t_stop2<<" "<<t_stop3<<" "<<t_sigma1<<" "<<t_sigma2<<" "<<t_sigma3<<" "<<mx<<" "<<mv<<endl;
-  if(1 || print_here) cout<<FEB_i<<" "<<chip_i<<" "<<ch_i<<" "<<rate<<" "<<noise_charge<<" "<<threshold<<" "<<thr_wid<<" "<<t_start1<<" "<<t_start2<<" "<<t_start3<<" "<<t_stop1<<" "<<t_stop2<<" "<<t_stop3<<" "<<t_sigma1<<" "<<t_sigma2<<" "<<t_sigma3<<" "<<mx<<" "<<mv<<endl;
+  outStream<<FEB_i<<" "<<chip_i<<" "<<ch_i<<" "<<sig_rate<<" "<<rate<<" "<<noise_charge<<" "<<mean_charge<<" "<<max_charge<<" "<<threshold<<" "<<thr_wid<<" "<<t_start1<<" "<<t_start2<<" "<<t_start3<<" "<<t_stop1<<" "<<t_stop2<<" "<<t_stop3<<" "<<t_sigma1<<" "<<t_sigma2<<" "<<t_sigma3<<" "<<t_start1FEB<<" "<<t_start2FEB<<" "<<t_start3FEB<<" "<<t_stop1FEB<<" "<<t_stop2FEB<<" "<<t_stop3FEB<<" "<<t_sigma1FEB<<" "<<t_sigma2FEB<<" "<<t_sigma3FEB<<" "<<mx<<" "<<mv<<" "<<quality<<endl;
+  if(print_here) cout<<FEB_i<<" "<<chip_i<<" "<<ch_i<<" "<<sig_rate<<" "<<rate<<" "<<noise_charge<<" "<<mean_charge<<" "<<max_charge<<" "<<threshold<<" "<<thr_wid<<" "<<t_start1<<" "<<t_start2<<" "<<t_start3<<" "<<t_stop1<<" "<<t_stop2<<" "<<t_stop3<<" "<<t_sigma1<<" "<<t_sigma2<<" "<<t_sigma3<<" "<<t_start1FEB<<" "<<t_start2FEB<<" "<<t_start3FEB<<" "<<t_stop1FEB<<" "<<t_stop2FEB<<" "<<t_stop3FEB<<" "<<t_sigma1FEB<<" "<<t_sigma2FEB<<" "<<t_sigma3FEB<<" "<<mx<<" "<<mv<<" "<<quality<<endl;
   outStream.close();
   return;
 }
@@ -311,8 +465,8 @@ void ext(vector<int> runs){
   //Read the output from each channel and write it on a file
   outFile = DataDir+to_string(runs.at(0))+"/extraction.txt";
   ifstream in(outFile); 
-  while(in>>t_feb>>t_chip>>t_ch>>t_noise_Hz>>t_noise_Q>>t_thr>>t_thr_wid>>t_time_start1>>t_time_start2>>t_time_start3>>t_time_stop1>>t_time_stop2>>t_time_stop3>>t_time_sigma1>>t_time_sigma2>>t_time_sigma3>>t_strip_x>>t_strip_v) {
-    if(t_noise_Hz==0) t_thr=t_thr_wid=t_time_start1=t_time_start2=t_time_start3=t_time_stop1=t_time_stop2=t_time_stop3=t_time_sigma1=t_time_sigma2=t_time_sigma3=0; 
+  while(in>>t_feb>>t_chip>>t_ch>>t_sig_Hz>>t_noise_Hz>>t_noise_Q>>t_sig_meanQ>>t_sig_maxQ>>t_thr>>t_thr_wid>>t_time_start1>>t_time_start2>>t_time_start3>>t_time_stop1>>t_time_stop2>>t_time_stop3>>t_time_sigma1>>t_time_sigma2>>t_time_sigma3>>t_time_start1FEB>>t_time_start2FEB>>t_time_start3FEB>>t_time_stop1FEB>>t_time_stop2FEB>>t_time_stop3FEB>>t_time_sigma1FEB>>t_time_sigma2FEB>>t_time_sigma3FEB>>t_strip_x>>t_strip_v>>t_quality) {
+    if(t_noise_Hz==0 || t_sig_Hz==0) t_thr=t_thr_wid=t_time_start1=t_time_start2=t_time_start3=t_time_stop1=t_time_stop2=t_time_stop3=t_time_sigma1=t_time_sigma2=t_time_sigma3=t_rate_sat_max=0; 
     otree->Fill();
   }
   otree->Write(); 
@@ -329,12 +483,13 @@ void ext(vector<int> runs){
   }
   //Clean
   gSystem->Exec("rm -f /tmp/ihep_data/ts*");
+  gSystem->Exec("date +%Y/%m/%d--%H:%M");
   return;
 }
 
 void ext_i(vector<int> runs, int start_FEB, int end_FEB){
   for(int FEB_i=start_FEB;FEB_i<=end_FEB;FEB_i++){
-    if(FEB_i==44 || FEB_i==45 || FEB_i==46 || FEB_i==47 || FEB_i==48 || FEB_i==50 || FEB_i==51) continue;
+    if(FEB_i==44 || FEB_i==45 || FEB_i==46 || FEB_i==47 || FEB_i==50 || FEB_i==51) continue;
     for(int chip_i=1; chip_i<3; chip_i++){
       for(int ch_i=0;ch_i<NCHANNEL;ch_i++){
 	TString bash_command;
@@ -352,6 +507,7 @@ void ext_i(vector<int> runs, int start_FEB, int end_FEB){
 }
 
 bool init(vector<int> runs){
+  gSystem->Exec("date +%Y/%m/%d--%H:%M");
   bool isok=runs.size();
   for(int i=0;i<runs.size();i++){
     cout<<"test: "<<i+1<<" --> "<<runs.at(i)<<endl;
@@ -388,29 +544,44 @@ bool init(int run, int run0){
   ofile = new TFile(ofile_name,"RECREATE");
   otree = new TTree("tree","tree");
   //General info
-  otree->Branch("FEB",&t_feb,"FEB/I");
-  otree->Branch("chip",&t_chip,"chip/I");
-  otree->Branch("channel",&t_ch,"channel/I");
+  otree->Branch("FEB"             ,&t_feb         ,"FEB/I");
+  otree->Branch("chip"            ,&t_chip        ,"chip/I");
+  otree->Branch("channel"         ,&t_ch          ,"channel/I");
   //Mapping
-  otree->Branch("strip_x",&t_strip_x,"strip_x/I");
-  otree->Branch("strip_v",&t_strip_v,"strip_v/I");
+  otree->Branch("strip_x"         ,&t_strip_x     ,"strip_x/I");
+  otree->Branch("strip_v"         ,&t_strip_v     ,"strip_v/I");
   //Noise
-  otree->Branch("noise_Hz",&t_noise_Hz,"noise_Hz/D");
-  otree->Branch("noise_Q",&t_noise_Q,"noise_Q/D");
+  otree->Branch("noise_rate_Hz"   ,&t_noise_Hz    ,"noise_rate_Hz/D");
+  otree->Branch("noise_meanQ_fC"  ,&t_noise_Q     ,"noise_meanQ_fC/D");
   //Threshold
-  otree->Branch("threshold",&t_thr,"threshold/D");
-  otree->Branch("thr_width",&t_thr_wid,"thr_width/D");
+  otree->Branch("threshold_fC"    ,&t_thr         ,"threshold_fC/D");
+  otree->Branch("thr_width_fC"    ,&t_thr_wid     ,"thr_width_fC/D");
+  //Signal
+  otree->Branch("signal_meanQ_fC" ,&t_sig_meanQ   ,"signal_meanQ_fC/D");
+  otree->Branch("signal_maxQ_fC"  ,&t_sig_maxQ    ,"signal_maxQ_fC/D");
+  otree->Branch("signal_rate_Hz"  ,&t_sig_Hz      ,"signal_rate_Hz/D");
+  //otree->Branch("rate_Qsat_Qpeak" ,&t_rate_sat_max,"rate_Qsat_Qpeak/D");
   //Time
-  otree->Branch("time_start1",&t_time_start1,"time_start1_ns/D");
-  otree->Branch("time_start2",&t_time_start2,"time_start2_ns/D");
-  otree->Branch("time_start3",&t_time_start3,"time_start3_ns/D");
-  otree->Branch("time_stop1" ,&t_time_stop1, "time_stop1_ns/D");
-  otree->Branch("time_stop2" ,&t_time_stop2, "time_stop2_ns/D");
-  otree->Branch("time_stop3" ,&t_time_stop3, "time_stop3_ns/D");
-  otree->Branch("time_sigma1",&t_time_sigma1,"time_sigma1_ns/D");
-  otree->Branch("time_sigma2",&t_time_sigma2,"time_sigma2_ns/D");
-  otree->Branch("time_sigma3",&t_time_sigma3,"time_sigma3_ns/D");
-
+  otree->Branch("time_start1_ns"  ,&t_time_start1 ,"time_start1_ns/D");
+  otree->Branch("time_start2_ns"  ,&t_time_start2 ,"time_start2_ns/D");
+  otree->Branch("time_start_ns3"  ,&t_time_start3 ,"time_start3_ns/D");
+  otree->Branch("time_stop1_ns"   ,&t_time_stop1  ,"time_stop1_ns/D");
+  otree->Branch("time_stop2_ns"   ,&t_time_stop2  ,"time_stop2_ns/D");
+  otree->Branch("time_stop3_ns"   ,&t_time_stop3  ,"time_stop3_ns/D");
+  otree->Branch("time_sigma1_ns"  ,&t_time_sigma1 ,"time_sigma1_ns/D");
+  otree->Branch("time_sigma2_ns"  ,&t_time_sigma2 ,"time_sigma2_ns/D");
+  otree->Branch("time_sigma3_ns"  ,&t_time_sigma3 ,"time_sigma3_ns/D");
+  otree->Branch("time_start1tiger_ns"  ,&t_time_start1FEB ,"time_start1tiger_ns/D");
+  otree->Branch("time_start2tiger_ns"  ,&t_time_start2FEB ,"time_start2tiger_ns/D");
+  otree->Branch("time_starttiger_ns3"  ,&t_time_start3FEB ,"time_start3tiger_ns/D");
+  otree->Branch("time_stop1tiger_ns"   ,&t_time_stop1FEB  ,"time_stop1tiger_ns/D");
+  otree->Branch("time_stop2tiger_ns"   ,&t_time_stop2FEB  ,"time_stop2tiger_ns/D");
+  otree->Branch("time_stop3tiger_ns"   ,&t_time_stop3FEB  ,"time_stop3tiger_ns/D");
+  otree->Branch("time_sigma1tiger_ns"  ,&t_time_sigma1FEB ,"time_sigma1tiger_ns/D");
+  otree->Branch("time_sigma2tiger_ns"  ,&t_time_sigma2FEB ,"time_sigma2tiger_ns/D");
+  otree->Branch("time_sigma3tiger_ns"  ,&t_time_sigma3FEB ,"time_sigma3tiger_ns/D");
+  //Quality
+  otree->Branch("channel_quality" ,&t_quality     ,"channel_quality/I");
 
   //Clean the txt file
   outFile = DataDir+to_string(run0)+"/extraction.txt";
@@ -470,7 +641,11 @@ TString Get_Cut(int caso, int var1, int var2, int var3){
     if(!no_TP) cut = Form("channel!=%d&&FEB_label==%d&&chip==%d&&t_min_ttrigg>=%d && t_min_ttrigg<%d&&charge_SH>%d&&channel==%d",thr_ch,var1,var2,signal_time_cut_min,signal_time_cut_max,charge_cut,var3);
     if(no_TP)  cut = Form("FEB_label==%d&&chip==%d&&time_ns>=%d && time_ns<%d && charge_SH>%d&&channel==%d",var1,var2,signal_time_cut_min_noTP,signal_time_cut_max_noTP,charge_cut,var3);
     return cut;
-
+  case 7:
+    //Signal in time selection - feb - chip 
+    if(!no_TP) cut = Form("channel!=%d&&FEB_label==%d&&chip==%d&&t_min_ttrigg>=%d && t_min_ttrigg<%d&&charge_SH>%d",thr_ch,var1,var2,signal_time_cut_min,signal_time_cut_max,charge_cut);
+    if(no_TP)  cut = Form("FEB_label==%d&&chip==%d&&time_ns>=%d && time_ns<%d && charge_SH>%d",var1,var2,signal_time_cut_min_noTP,signal_time_cut_max_noTP,charge_cut);
+    return cut;
   default:
     cout<<"No cut has been selected"<<endl;
     return cut;

@@ -35,7 +35,7 @@ if [[ $1 -gt 88 ]]; then
     ts -df sleep 0.01
     echo "Terminate decode"
     rm -f /tmp/ihep_data/ts-out.*
-    source run_2.sh
+    source $TER/run_2.sh
 fi
 cd $HERE
 

@@ -37,12 +37,16 @@ void clean(int run){
   }
   //Remove subRUN with low number of trigger
   if(1){
-    tree->Draw("event>>h_event","FEB<44","");
-    h_event->Fit(g_event,"WQ");
-    TString cut = Form("FEB<44 && event<%f",g_event->GetParameter(1)-3*g_event->GetParameter(2));
+    tree->Draw("event>>h_event","FEB<44 && nhit>0","");
+    h_event->Fit(g_event,"W");
+    TString cut = Form("FEB<44 && (event<%f || nhit==0)",g_event->GetParameter(1)-3*g_event->GetParameter(2));
+    cout<<cut<<endl;
+    cout<<tree->GetEntries()<<endl;
+    cout<<tree->GetEntries(cut)<<endl;;
     tree->Draw("subRUN>>h_subrun",cut,"");
     for(int i=0;i<max_subrun;i++){
-      if(h_subrun->GetBinContent(i+1)) {
+      //cout<<i<<" "<<h_subrun->GetBinContent(i+1)<<endl;
+      if(h_subrun->GetBinContent(i+1)>2) {
 	TString bash_cut_i=bash_cut + Form("Sub_RUN_event_%i.root",i);
 	//cout<<bash_cut_i<<endl;
 	gSystem->Exec(bash_cut_i);
@@ -52,15 +56,16 @@ void clean(int run){
     }
   }
   //Remove subRUN with low number of trigger in at least on FEB 
-  if(1){
+  if(0){
     tree->Draw("subRUN>>h_subrun","FEB<44 && nhit==0","");
     for(int i=0;i<max_subrun;i++){
+      cout<<i<<" "<<h_subrun->GetBinContent(i+1)<<endl;
       if(h_subrun->GetBinContent(i+1)) {
 	TString bash_cut_i=bash_cut + Form("Sub_RUN_event_%i.root",i);
-	//cout<<bash_cut_i<<endl;
-	gSystem->Exec(bash_cut_i);
+	cout<<bash_cut_i<<endl;
+	//gSystem->Exec(bash_cut_i);
 	TString bash_cut_ii=bash_cut + Form("Sub_RUN_TP_event_%i.root",i);
-	gSystem->Exec(bash_cut_ii);
+	//gSystem->Exec(bash_cut_ii);
       }
     }
   }

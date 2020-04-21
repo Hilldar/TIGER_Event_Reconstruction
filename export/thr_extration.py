@@ -32,7 +32,7 @@ class thr_importer_cl():
         Funcion to import the channel configuration from old RUNS. Needs the pickle containing the data
         :return:
         """
-        File_name = "CONF_log_all_run_337.pkl"
+        File_name = "conf_files/CONF_run_375.pkl"
 
         with open(File_name, 'rb') as f:
             old_conf_dict = pickle.load(f)

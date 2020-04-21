@@ -38,7 +38,7 @@ class baseline_importer():
         :return:
         """
         # Create root file and tree
-        map_file = ROOT.TFile.Open("mapping_IHEP_L2_2planari_penta.root")
+        map_file = ROOT.TFile.Open("mapping_IHEP_L2_2planari.root")
         mapping_matrix = {1: {}, 2: {}, 3: {},0:{}}
         for event in map_file.tree:
             mapping_matrix[event.layer_id][event.HW_FEB_id, event.chip_id] = [event.gemroc_id,event.SW_FEB_id]

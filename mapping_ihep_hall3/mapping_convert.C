@@ -60,7 +60,8 @@ void mapping_convert(){
 
     for(int layer=0; layer<3; layer++){
       //std::string FILENAME = Form("L%d_mapping.txt",layer);
-      std::string FILENAME = Form("L%d_mapping_setupL1L2.txt",layer);
+      //std::string FILENAME = Form("L%d_mapping_setupL1L2.txt",layer);
+      std::string FILENAME = Form("L%d_mapping_CGEMBOSS.txt",layer);
 	std::ifstream data_file(FILENAME);
 
 	if(!data_file){

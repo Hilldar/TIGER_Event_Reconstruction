@@ -27,7 +27,7 @@ if [[ $1 -gt 88 ]]; then
     ts -df sleep 0.01
     echo "Terminate merging decoded"
     rm -f /tmp/ihep_data/ts-out.*
-    source run_3.sh
+    source $TER/run_3.sh
 fi
 cd $HERE
 

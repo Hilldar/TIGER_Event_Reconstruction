@@ -64,6 +64,12 @@ void ana(int run, int subrun){
     tdc_file=     "TDCcalib_L1_L2_2planar.root";
   }
 
+  if(false){
+    map_file= "mapping_IHEP_L1_L2_2planar_CGEMBOSS.root";
+    qdc_file=     "QDCcalib_L1_L2_2planar.root";
+    tdc_file=     "TDCcalib_L1_L2_2planar.root";
+  }
+
   TString tot_file1 = "delta_vth.root";
   TString tot_file2 = "ToT_calib.root";
   bool save_TP = true;
