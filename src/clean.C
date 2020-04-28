@@ -21,16 +21,27 @@ void clean(int run){
   TH1I *h_subrun = new TH1I("h_subrun","h_subrun",max_subrun,0,max_subrun);
   TH1I *h_event = new TH1I("h_event","h_event",max_event,0,max_event);
   TF1 *g_event = new TF1("g_event","gaus",0,max_event);
-  TString bash_cut="rm -f " + ANADIR + Form("%i/",run);
+  //TString bash_cut="rm -f " + ANADIR + Form("%i/",run);
+  TString bash_cut="mv -f " + ANADIR + Form("%i/",run); 
+  TString mkdir="mkdir -p " + ANADIR + Form("%i/",run) + "/badSubRUN";
+  TString mkdir1=mkdir+"/lowevent";
+  TString mkdir2=mkdir+"/nofireFEB";
+  TString mkdir3=mkdir+"/tool1ts";
+  gSystem->Exec(mkdir);
+  gSystem->Exec(mkdir1);
+  gSystem->Exec(mkdir2);
+  gSystem->Exec(mkdir3);
   //Remove subRUN with at least 1 FEB w/o TP
   if(TP_on){
     tree->Draw("subRUN>>h_subrun","FEB<44 && TP_eff<0.1","");
     for(int i=0;i<max_subrun;i++){
       if(h_subrun->GetBinContent(i+1)) {
 	TString bash_cut_i=bash_cut + Form("Sub_RUN_event_%i.root",i);
+	bash_cut_i += " " + ANADIR + Form("%i/",run) + "/badSubRUN/.";
 	//cout<<bash_cut_i<<endl;
 	gSystem->Exec(bash_cut_i);
 	TString bash_cut_ii=bash_cut + Form("Sub_RUN_TP_event_%i.root",i);
+	bash_cut_ii += " " + ANADIR + Form("%i/",run) + "/badSubRUN/.";
 	gSystem->Exec(bash_cut_ii);
       }
     }
@@ -48,24 +59,43 @@ void clean(int run){
       //cout<<i<<" "<<h_subrun->GetBinContent(i+1)<<endl;
       if(h_subrun->GetBinContent(i+1)>2) {
 	TString bash_cut_i=bash_cut + Form("Sub_RUN_event_%i.root",i);
+	bash_cut_i += " " + ANADIR + Form("%i/",run) + "/badSubRUN/lowevent/.";
 	//cout<<bash_cut_i<<endl;
 	gSystem->Exec(bash_cut_i);
 	TString bash_cut_ii=bash_cut + Form("Sub_RUN_TP_event_%i.root",i);
+	bash_cut_ii += " " + ANADIR + Form("%i/",run) + "/badSubRUN/lowevent/.";
 	gSystem->Exec(bash_cut_ii);      
       }
     }
   }
   //Remove subRUN with low number of trigger in at least on FEB 
-  if(0){
+  if(1){
     tree->Draw("subRUN>>h_subrun","FEB<44 && nhit==0","");
     for(int i=0;i<max_subrun;i++){
       cout<<i<<" "<<h_subrun->GetBinContent(i+1)<<endl;
-      if(h_subrun->GetBinContent(i+1)) {
+      if((h_subrun->GetBinContent(i+1) && run<371) || (h_subrun->GetBinContent(i+1)>1 && run>371)){
 	TString bash_cut_i=bash_cut + Form("Sub_RUN_event_%i.root",i);
-	cout<<bash_cut_i<<endl;
-	//gSystem->Exec(bash_cut_i);
+	bash_cut_i += " " + ANADIR + Form("%i/",run) + "/badSubRUN/nofireFEB/.";
+	//cout<<bash_cut_i<<endl;
+	gSystem->Exec(bash_cut_i);
 	TString bash_cut_ii=bash_cut + Form("Sub_RUN_TP_event_%i.root",i);
-	//gSystem->Exec(bash_cut_ii);
+	bash_cut_ii += " " + ANADIR + Form("%i/",run) + "/badSubRUN/nofireFEB/.";
+	gSystem->Exec(bash_cut_ii);
+      }
+    }
+  }
+  //Remove subRUN with a FEB with too much l1ts_min_tcoarse outside the good region
+  if(1){
+    tree->Draw("subRUN>>h_subrun","FEB<44 && ratiol1ts>0.2","");
+    for(int i=0;i<max_subrun;i++){
+      cout<<i<<" "<<h_subrun->GetBinContent(i+1)<<endl;
+      if(h_subrun->GetBinContent(i+1)){
+        TString bash_cut_i=bash_cut + Form("Sub_RUN_event_%i.root",i);
+        bash_cut_i += " " + ANADIR + Form("%i/",run) + "/badSubRUN/tool1ts/.";
+	gSystem->Exec(bash_cut_i);                                                                        
+        TString bash_cut_ii=bash_cut + Form("Sub_RUN_TP_event_%i.root",i);
+        bash_cut_ii += " " + ANADIR + Form("%i/",run) + "/badSubRUN/tool1ts/.";
+        gSystem->Exec(bash_cut_ii);                                                                       
       }
     }
   }

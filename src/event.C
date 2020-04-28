@@ -3,7 +3,7 @@
 const bool save_TP             = true ;
 const bool at_least_two_roc    = false;
 const bool test_chip_channel   = false;
-const bool test_ROC_efficiency = true;
+const bool test_ROC_efficiency = false;
 const bool DEBUG               = false;
 const bool print_hits          = false;
 
@@ -28,6 +28,8 @@ int TP_value[N_TIGER];
 int TP_diff [N_TIGER];
 double eff[N_TIGER], eff_T[N_TIGER], eff_Tpm1[N_TIGER];
 int nhit_TIGER[N_TIGER];
+int l1ts_in[N_TIGER]={0};
+int l1ts_out[N_TIGER]={0};
 
 TTree *otree, *ootree;
 
@@ -397,8 +399,17 @@ void event(int run, int subrun){
       //To speed up the code the TP is not saved
       if(!save_TP && dchannel == trigg_channel) continue;
       
-      //Check if there are BAD event due to ROC problem --> S/H only !!!
+      //Check if there are BAD hit due to ROC problem --> S/H only !!!
       if(ddelta_coarse!=25 && ddelta_coarse!=26) continue;
+
+      //Check l1ts_min_tcoarse if there are BAD hits dueto ROC problem
+      if(dl1ts_min_tcoarse<1300 || dl1ts_min_tcoarse>1560) {
+	l1ts_out[2*dFEB_label+dchip-1]++;
+	continue;
+      }
+      else{
+	l1ts_in[2*dFEB_label+dchip-1]++;
+      }
       
       tcount           .push_back(dcount           );
       tlayer           .push_back(dlayer           );
@@ -588,18 +599,21 @@ void event(int run, int subrun){
   int ievent=0;
   int lsubRUN=subrun;
   int ihit=0;
+  double ratiol1ts=0;
   ootree->Branch("TP_eff"    , &TP_eff , "TP_eff/D");
   ootree->Branch("FEB_label" , &iFEB   , "FEB/I");
   ootree->Branch("chip"      , &ichip  , "chip/I");
   ootree->Branch("event"     , &ievent , "event/I");
   ootree->Branch("subRUN"    , &lsubRUN, "subRUN/I");
   ootree->Branch("nhit"      , &ihit   , "nhit/I");
+  ootree->Branch("ratiol1ts" , &ratiol1ts, "ratiol1ts/D");
   for(int iichip=0;iichip<N_TIGER;iichip++){
     TP_eff=eff_Tpm1[iichip];
     iFEB=iichip/2;
     ichip=iichip-(iichip/2*2)+1;
     ievent=evtNo;
     ihit=nhit_TIGER[iichip];
+    ratiol1ts=(double)(l1ts_out[iichip])/(l1ts_in[iichip]+l1ts_out[iichip]);
     ootree->Fill();
   }
   ootree->Write();

@@ -74,7 +74,7 @@ double t_time_start1,t_time_start2,t_time_start3,t_time_stop1,t_time_stop2,t_tim
 double t_time_start1FEB,t_time_start2FEB,t_time_start3FEB,t_time_stop1FEB,t_time_stop2FEB,t_time_stop3FEB,t_time_sigma1FEB,t_time_sigma2FEB,t_time_sigma3FEB;
 
 //VARIABLE FOR MAPPING
-TString map_file="mapping_IHEP_L2_2planari_penta.root";
+TString map_file="mapping_and_calibration_file/mapping_CGEMBOSS_2.0.root";
 TFile *mapfile = new TFile(map_file);
 TTree *maptree = (TTree*)mapfile->Get("tree");
 int channel_id, pos_x, pos_v, chip_id, FEB_label_id;

@@ -19,59 +19,18 @@ void ana(int run, int subrun){
 
   int trigg_channel=20;
   if(run>=118) trigg_channel=62;
-  if(run==337) trigg_channel=-1;
-  TString map_file = "mapping_IHEP.root";
-  TString qdc_file = "QDCcalib.root";
-  TString tdc_file = "TDCcalib.root";
-  if(run>=250 && run<264) {
-    map_file ="mapping_IHEP_planar_ROC3.root";
-    qdc_file = "QDCcalib_planar_ROC3.root";
-    tdc_file = "TDCcalib_planar_ROC3.root";
-  }
-  if(run>=264) {
-    map_file="mapping_IHEP_L2_2planari.root";
-    qdc_file = "QDCcalib_L2_2planari.root";
-    tdc_file = "TDCcalib_L2_2planari.root";
-  }
-  if(run>=274) {
-    map_file="mapping_IHEP_L2_2planari_bis.root";
-    qdc_file = "QDCcalib_L2_2planari_bis.root";
-    tdc_file = "TDCcalib_L2_2planari_bis.root";
-  }
-  if(run>=277) {
-    map_file="mapping_IHEP_L2_2planari_tris.root";
-    qdc_file = "QDCcalib_L2_2planari_tris.root";
-    tdc_file = "TDCcalib_L2_2planari_tris.root";
-  }
-  if(run>=281){
-    map_file="mapping_IHEP_L2_2planari_quad.root";
-    qdc_file = "QDCcalib_L2_2planari_quad.root";
-    tdc_file = "TDCcalib_L2_2planari_quad.root";
-  }
-  if(run==273 || run==267){ // TEMPORARY - 16/11/2019 - GM - TO BE REMOVED
-    map_file="mapping_IHEP_L2_2planari_quad.root";
-    qdc_file="QDCcalib_L2_2planari_quad.root";
-    tdc_file="TDCcalib_l2_2planari_quad.root";
-  }
-  if(run>=286){
-    map_file=  "mapping_IHEP_L2_2planari_penta.root";
-    qdc_file =     "QDCcalib_L2_2planari_penta.root";
-    tdc_file =     "TDCcalib_L2_2planari_penta.root";
-  }
-  if(run>=317){
-    map_file= "mapping_IHEP_L1_L2_2planar.root";
-    qdc_file=     "QDCcalib_L1_L2_2planar.root";
-    tdc_file=     "TDCcalib_L1_L2_2planar.root";
+  if(run>=337) trigg_channel=-1;
+  TString map_file = "mapping_and_calibration_file/";
+  TString qdc_file = "mapping_and_calibration_file/";
+  TString tdc_file = "mapping_and_calibration_file/";
+  if(run>=337){
+    map_file+=  "mapping_CGEMBOSS_2.0.root";
+    qdc_file+= "QDCcalib_CGEMBOSS_2.0.root";
+    tdc_file+= "TDCcalib_CGEMBOSS_2.0.root";
   }
 
-  if(false){
-    map_file= "mapping_IHEP_L1_L2_2planar_CGEMBOSS.root";
-    qdc_file=     "QDCcalib_L1_L2_2planar.root";
-    tdc_file=     "TDCcalib_L1_L2_2planar.root";
-  }
-
-  TString tot_file1 = "delta_vth.root";
-  TString tot_file2 = "ToT_calib.root";
+  TString tot_file1 = "mapping_and_calibration_file/delta_vth.root";
+  TString tot_file2 = "mapping_and_calibration_file/ToT_calib.root";
   bool save_TP = true;
   //int trigg_FEB=4;
   //int trigg_gemroc=4;
