@@ -20,7 +20,7 @@
 #include "TMinuit.h"
 #include "TString.h"
 
-const string DataDir="/home/ihep_data/data/raw_root/";
+const string DataDir=DATA+"/raw_root/";
 
 using namespace std;
 void ext(int);

@@ -18,11 +18,18 @@ fi
 run_number=$2
 subrun_number=$3
 roc_number=$4
-DATADIR="/dati/Data_CGEM_IHEP_Integration_2019/raw_dat/RUN_$run_number"
-ANADIR="/dati/Data_CGEM_IHEP_Integration_2019/raw_root/$run_number"
+DATADIR="$TER_data/raw_dat/RUN_$run_number"
+ANADIR="$TER_data/raw_root/$run_number"
+
 
 DATA_RAW_TIGER=$ANADIR
-DATA_RAW_GRAAL="/dati/Data_CGEM_IHEP_Integration_2019/raw_graal"
+DATA_RAW_GRAAL="$TER_data/raw_graal"
+
+mkdir -p "$TER_data"
+mkdir -p "$TER_data/raw_dat"
+mkdir -p "$TER_data/raw_root"
+mkdir -p "$DATA_RAW_GRAAL"
+mkdir -p "$TER_data/raw_daq"
 
 echo RUN:    $run_number
 echo SUBRUN: $subrun_number
@@ -49,9 +56,10 @@ OPT_ROOT="false"
 OPT_COPY="false"
 OPT_CLEAN="false"
 OPT_DAQ="false"
+OPT_ROOT_EXT="false"
 OPT_ROOT_DAQ="false"
 OPT_EXT="false"
-while getopts "DAEPGMPQFmdawphegfCcVXx" OPTION; do
+while getopts "DAEPGMPQFmdawphegfCcVXxq" OPTION; do
     case $OPTION in
 
 	w)
@@ -72,18 +80,18 @@ while getopts "DAEPGMPQFmdawphegfCcVXx" OPTION; do
 	    echo "   -Q RUN SUBRUN           data quality analysis and plot"
             echo "   -X RUN                  run the extraction of the information"
             echo "   -X RUN FEB CHIP CHANNEL run the extraction of the i-th channel"
+            echo "   -c RUN                  clean the run from bad subRUN"
+            echo "   -C RUN                  copy the run into thr GRAAL folder"
 	    echo "   -M                      make clean all"
 	    echo "   -m                      make"
 	    echo "   -f RUN SUBRUN ROC       open the decoded      root file for the run and subrun and roc given"
 	    echo "   -d RUN SUBRUN           open the decoded      root file for the run and subrun given"
 	    echo "   -a RUN SUBRUN           open the ana          root file for the run and subrun given"
 	    echo "   -e RUN SUBRUN           open the event        root file for the run and subrun given"
-	    echo "   -p RUN SUBRUN           open the post_event   root file for the run and subrun given"
+	    #echo "   -p RUN SUBRUN           open the post_event   root file for the run and subrun given"
 	    echo "   -g RUN                  open the merged event root file for the run"
             echo "   -x RUN                  open the channel ana  root file for the run"
-	    echo "   -c RUN                  clean the run from bad subRUN"
-	    echo "   -C RUN                  copy the run into thr GRAAL folder"
- 
+	    echo "   -q RUN                  open the pdf ana summary file for the run"
 	    exit 0
 	    ;;
 
@@ -160,10 +168,13 @@ while getopts "DAEPGMPQFmdawphegfCcVXx" OPTION; do
                ;;
 
 	x)
-	        ROOT_OPT_DAQ="true"
+	        ROOT_OPT_EXT="true"
                ;;
 	X)
 	        OPT_EXT="true"
+	       ;;
+	q)
+	        OPT_ROOT_DAQ="true"
 	       ;;
     esac
 done
@@ -280,7 +291,7 @@ fi
 if [ $OPT_ROOT_FIRST = "true" ]
 then
     if [ -z $roc_number ]; then echo "Use the command 'TER -f RUN SUBRUN ROC'"; exit; fi
-    root -l /home/ihep_data/data/raw_root/$run_number/SubRUN_${subrun_number}_GEMROC_${roc_number}_TM.root
+    root -l $ANADIR/SubRUN_${subrun_number}_GEMROC_${roc_number}_TM.root
 fi
 
 
@@ -288,31 +299,31 @@ fi
 if [ $OPT_ROOT_DEC = "true" ]
 then
     if [ -z $subrun_number ]; then echo "Use the command 'TER -d RUN SUBRUN'"; exit; fi
-    root -l /home/ihep_data/data/raw_root/$run_number/Sub_RUN_dec_$subrun_number.root
+    root -l $ANADIR/Sub_RUN_dec_$subrun_number.root
 fi
 #ana root file open
 if [ $OPT_ROOT_ANA = "true" ]
 then
     if [ -z $subrun_number ]; then echo "Use the command 'TER -a RUN SUBRUN'"; exit; fi
-    root -l /home/ihep_data/data/raw_root/$run_number/Sub_RUN_ana_$subrun_number.root
+    root -l $ANADIR/Sub_RUN_ana_$subrun_number.root
 fi
 #evt root file open 
 if [ $OPT_ROOT_EVT = "true" ]
 then
     if [ -z $subrun_number ]; then echo "Use the command 'TER -e RUN SUBRUN'"; exit; fi
-    root -l /home/ihep_data/data/raw_root/$run_number/Sub_RUN_event_$subrun_number.root
+    root -l $ANADIR/Sub_RUN_event_$subrun_number.root
 fi
 #post_event root file open  
 if [ $OPT_ROOT_POS = "true" ]
 then
     if [ -z $subrun_number ]; then echo "Use the command 'TER -p RUN SUBRUN'"; exit; fi
-    root -l /home/ihep_data/data/raw_root/$run_number/Sub_RUN_post_event_$subrun_number.root
+    root -l $ANADIR/Sub_RUN_post_event_$subrun_number.root
 fi
 #merged event root file open
 if [ $OPT_ROOT = "true" ]
 then
     if [ -z $run_number ]; then echo "Use the command 'TER -g RUN'"; exit; fi
-    root -l /home/ihep_data/data/raw_root/$run_number/event.root
+    root -l $ANADIR/event.root
 fi
 #Clean                                                                                                                                                                                                                     
 if [[ $OPT_CLEAN = "true" ]];
@@ -359,6 +370,12 @@ then
     fi
     
     cd $QUI; 
+fi
+#DAQ open PDF
+if [ $OPT_ROOT_DAQ = "true" ];
+then
+    echo "Opening the pdf file"
+    evince $TER_data/pdf_ter/$run_number.pdf
 fi
 #EXTRACTION
 if [[ $OPT_EXT = "true" ]];
@@ -441,9 +458,9 @@ then
     fi
 fi
 #Extraction root open 
-if [[ $ROOT_OPT_DAQ = "true" ]];
+if [[ $ROOT_OPT_EXT = "true" ]];
 then
     if [ -z $run_number ]; then echo "Use the command 'TER -q RUN' or TER -q RUN"; exit; fi
-    root -l /home/ihep_data/data/raw_daq/extracted_noise_thr_$run_number.root
+    root -l $TER_data/raw_daq/extracted_noise_thr_$run_number.root
 fi
 

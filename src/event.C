@@ -250,7 +250,7 @@ void event(int run, int subrun){
   otree = new TTree("tree","tree");
   //ootree = new TTree("tee","tee");
 
-  int evtNo, nhits, ngemrocs, ntimestamp, runNo, ntcoarse_L1_TP, ntcoarse_L2_TP;
+  int evtNo, evtNNo, nhits, ngemrocs, ntimestamp, runNo, ntcoarse_L1_TP, ntcoarse_L2_TP;
   float trigg_tcoarse;
   
   std::vector<int> tcount, tchannel, tgemroc, ttiger, tFEB_SW, ttimestamp, tstrip_x, tstrip_v, tl1ts_min_tcoarse, tchip, tFEB_label, tquality, tlayer, ttac, ttcoarse_min_ts;
@@ -315,6 +315,7 @@ void event(int run, int subrun){
   int itcount = it->first;
   nhits = 0;
   evtNo = 0;
+  evtNNo= 0;
   ngemrocs = 0;
   runNo = 0;
   std::vector<int> vgemrocs;
@@ -355,6 +356,8 @@ void event(int run, int subrun){
       
       itcount = elem->first;
       tree->GetEntry(elem->second);
+      evtNNo++;
+      if(evtNNo<=3) continue;
       if(print_hits){
 	cout<<"  itcount: "<<itcount<<endl;
 	cout<<"    count: "<<dcount<<endl;
@@ -403,14 +406,13 @@ void event(int run, int subrun){
       if(ddelta_coarse!=25 && ddelta_coarse!=26) continue;
 
       //Check l1ts_min_tcoarse if there are BAD hits dueto ROC problem
-      if(dl1ts_min_tcoarse<1300 || dl1ts_min_tcoarse>1560) {
-	l1ts_out[2*dFEB_label+dchip-1]++;
+      if(dl1ts_min_tcoarse<1300 || dl1ts_min_tcoarse>1566) {
+	if(evtNo>30) l1ts_out[2*dFEB_label+dchip-1]++;
 	continue;
       }
       else{
 	l1ts_in[2*dFEB_label+dchip-1]++;
       }
-      
       tcount           .push_back(dcount           );
       tlayer           .push_back(dlayer           );
       tchannel         .push_back(dchannel         );

@@ -473,9 +473,9 @@ void ext(vector<int> runs){
   ofile->Close();
   //Copy ttree if other runs
   if(runs.size()>1){
-    TString source_name=Form("/home/ihep_data/data/raw_daq/extracted_noise_thr_%d.root",runs.at(0));
+    TString source_name= DATA + Form("/raw_daq/extracted_noise_thr_%d.root",runs.at(0));
     for(int i=1;i<runs.size();i++){
-      TString destin_name=Form("/home/ihep_data/data/raw_daq/extracted_noise_thr_%d.root",runs.at(1));
+      TString destin_name= DATA + Form("/raw_daq/extracted_noise_thr_%d.root",runs.at(1));
       TString bash_command = "cp " + source_name + " " + destin_name;
       cout<<bash_command<<endl;
       gSystem->Exec(bash_command);
@@ -540,7 +540,7 @@ bool init(int run, int run0){
   }
   expected_noise_per_chip*=ch.GetEntries();
   //Define the extraction tree
-  ofile_name=Form("/home/ihep_data/data/raw_daq/extracted_noise_thr_%d.root",run0);
+  ofile_name= DATA + Form("/raw_daq/extracted_noise_thr_%d.root",run0);
   ofile = new TFile(ofile_name,"RECREATE");
   otree = new TTree("tree","tree");
   //General info

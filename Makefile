@@ -30,9 +30,9 @@ BIN_EXEC1    = $(addprefix $(BIN)/,$(EXEC1) )
 #COMPONENTS2  = main_post_event post_event
 #BIN_EXEC2    = $(addprefix $(BIN)/,$(EXEC2) )
 
-#EXEC3        = daq
-#COMPONENTS3  = main_daq daq
-#BIN_EXEC3     = $(addprefix $(BIN)/,$(EXEC3) )
+EXEC3        = daq
+COMPONENTS3  = main_daq daq
+BIN_EXEC3    = $(addprefix $(BIN)/,$(EXEC3) )
 
 EXEC4	     = ext
 COMPONENTS4  = main_ext ext
@@ -63,9 +63,9 @@ $(BIN)/$(EXEC1): $(addprefix $(LIB)/, $(addsuffix .o, $(COMPONENTS1) ) )
 #	$(LD) $(LDFLAGS) $^ $(ROOTLIBS) $(addprefix -L, $(LIBS)) -o $@
 #$(BIN)/$(EXEC2): $(addprefix $(LIB)/, $(addsuffix .o, $(COMPONENTS2) ) )
 # 3
-#$(BIN_EXEC3):
-#	$(LD) $(LDFLAGS) $^ $(ROOTLIBS) $(addprefix -L, $(LIBS)) -o $@
-#$(BIN)/$(EXEC3): $(addprefix $(LIB)/, $(addsuffix .o, $(COMPONENTS3) ) )
+$(BIN_EXEC3):
+	$(LD) $(LDFLAGS) $^ $(ROOTLIBS) $(addprefix -L, $(LIBS)) -o $@
+$(BIN)/$(EXEC3): $(addprefix $(LIB)/, $(addsuffix .o, $(COMPONENTS3) ) )
 #4
 $(BIN_EXEC4):
 	$(LD) $(LDFLAGS) $^ $(ROOTLIBS) $(addprefix -L, $(LIBS)) -o $@
@@ -83,7 +83,7 @@ clean:
 	rm -f $(BIN_EXEC0)
 	rm -f $(BIN_EXEC1)
 #rm -f $(BIN_EXEC2)
-#rm -f $(BIN_EXEC3)
+	rm -f $(BIN_EXEC3)
 	rm -f $(BIN_EXEC4)
 	rm -f $(BIN_EXEC5)
 cleanext:
@@ -94,6 +94,6 @@ $(LIB):
 $(BIN):
 	mkdir -p $(BIN)
 installdirs: $(LIB) $(BIN)
-rec:  installdirs $(BIN_EXEC0) installdirs $(BIN_EXEC1) installdirs $(BIN_EXEC4) installdirs $(BIN_EXEC5)
+rec:  installdirs $(BIN_EXEC0) installdirs $(BIN_EXEC1) installdirs $(BIN_EXEC3) installdirs $(BIN_EXEC4) installdirs $(BIN_EXEC5)
 all: rec
 
